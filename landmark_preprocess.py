@@ -13,22 +13,23 @@ import numpy as np
 # 读入新的鼻尖点表格
 landmark22_df = pd.read_excel('Nose Tip Slicer Coordinates.xlsx', usecols="A, E:G", skiprows=2,header=0)
 
+raw_landmark_dir = 'data/landmark_raw'
 # 读取原始的landmark数据
-for excel in os.listdir('48_excel'):
+for excel in os.listdir(raw_landmark_dir):
     if excel.endswith('.xlsx'):
         pid = excel.split('.')[0]
         print(f'Processing {pid}...')
-        landmark_file_xlsx = f'48_excel/{pid}.xlsx'
-        landmark_raw_df= pd.read_excel(landmark_file_xlsx, usecols="C:E,H:J", header=None, skiprows=4, nrows=43)
+        landmark_file_xlsx = os.path.join(raw_landmark_dir, excel)
+        landmark_raw_df= pd.read_excel(landmark_file_xlsx, usecols="A:E,H:J", header=None, skiprows=4, nrows=43)
         # 原始Excel文件中的列名，按照RSA顺序排列
-        landmark_raw_df.columns = ['R_post', 'S_post', 'A_post', 'R_pre', 'S_pre', 'A_pre']
+        landmark_raw_df.columns = ['name', 'landmark', 'R_post', 'S_post', 'A_post', 'R_pre', 'S_pre', 'A_pre']
         landmark_df = landmark_raw_df.copy()
         # 计算 dR, dA, dS
         landmark_df['dR'] = (landmark_df['R_post'] - landmark_df['R_pre'])
         landmark_df['dA'] = (landmark_df['A_post'] - landmark_df['A_pre'])
         landmark_df['dS'] = (landmark_df['S_post'] - landmark_df['S_pre'])
         # 调整列顺序
-        column_order = ['R_post', 'A_post', 'S_post', 'R_pre', 'A_pre', 'S_pre', 'dR', 'dA', 'dS']
+        column_order = ['name', 'landmark', 'R_post', 'A_post', 'S_post', 'R_pre', 'A_pre', 'S_pre', 'dR', 'dA', 'dS']
         pre_cols = ['R_pre', 'A_pre', 'S_pre']
         post_cols = ['R_post', 'A_post', 'S_post']
         disp_cols = ['dR', 'dA', 'dS']
