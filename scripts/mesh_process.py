@@ -2,13 +2,15 @@
  # @ Author: Yaobo Jia
  # @ Create Time: 2025-05-30 14:31:55
  # @ Modified by: Yaobo Jia
- # @ Modified time: 2025-05-30 14:33:54
- # @ Description:该脚本用于从分割图像生成3D mesh模型。
-    主要功能:
-    1. 从3D分割图像中提取前表面
-    2. 对提取的表面进行处理(裁剪、平滑等)
-    3. 生成规范化的3D mesh模型
+ # @ Modified time: 2025-06-04 18:28:17
+ # @ Description:通过手动分割的结果生成软组织mesh
+1. 生成精细分割，只包含面部在内的薄层。用于mesh生成的mask，也可以用于后续的分割label；
+2. mask设置ROI区域，这里采用了硬编码；
+3. matching cube算法提取mesh；
+4. 坐标变换，ijk转换为LPS坐标系；同时完成归一化；（pre和post的nose tip并不一样）
+5. 保存mesh并进行laplacian平滑
  '''
+
 
 import numpy as np
 import pandas as pd
@@ -121,7 +123,7 @@ if __name__ == '__main__':
         - 保存处理结果
     """
     root_dir = Path('raw_data/2_2_review_seg')
-    nose_df = pd.read_excel('raw_data/Nose Tip Slicer Coordinates.xlsx', usecols="A, E:G", skiprows=2,header=0)
+    nose_df = pd.read_excel('data/nose_tip_coordinates_LPS.xlsx')
     for post_file_path in tqdm(root_dir.rglob("*_PostOp.nrrd")):
         # 读取file
         post_filename = post_file_path.name
@@ -148,15 +150,13 @@ if __name__ == '__main__':
         sitk.WriteImage(sitk.GetImageFromArray(pre_segmentation.astype(np.uint8)), str(out_dir_seg / 'Pre.nii.gz'))
 
         # 获取nose_tip_coord
-        row = nose_df.loc[nose_df['pid'] == pid, ['Right.1', 'Anterior.1', 'Superior.1']]
-        ras_to_lps_transform = np.array([-1, -1, 1])
-        nose_tip_coord = row.values[0]
-        nose_tip_coord *= ras_to_lps_transform
+        pre_nose_tip_coord = nose_df.loc[nose_df['pid'] == pid, ['pre_L', 'pre_P', 'pre_S']].values[0]
+        post_nose_tip_coord = nose_df.loc[nose_df['pid'] == pid, ['post_L', 'post_P', 'post_S']].values[0]
 
         # generate mesh，并完成归一化
         out_dir_mesh = Path('data/mesh') / pid
         out_dir_mesh.mkdir(parents=True, exist_ok=True)
-        post_mesh = generate_mesh(post_seg_img, post_mask, nose_tip_coord)
+        post_mesh = generate_mesh(post_seg_img, post_mask, post_nose_tip_coord)
         o3d.io.write_triangle_mesh(str(out_dir_mesh / 'Post.ply'), post_mesh)
-        pre_mesh = generate_mesh(pre_seg_img, pre_mask, nose_tip_coord)
+        pre_mesh = generate_mesh(pre_seg_img, pre_mask, pre_nose_tip_coord)
         o3d.io.write_triangle_mesh(str(out_dir_mesh / 'Pre.ply'), pre_mesh)
